@@ -1,0 +1,47 @@
+
+ void LinxWiringDevice::HAL_INTR_EXTI (uint16_t GPIO_Pin,uint8_t Motor_Id,uint8_t pp)
+ {
+  __GPIOG_CLK_ENABLE();
+
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;//(pp>0 ?GPIO_MODE_IT_RISING : GPIO_MODE_IT_FALLING);
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_LOW;
+  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+  HAL_NVIC_SetPriority( EXTI9_5_IRQn,0,0); 
+  HAL_NVIC_EnableIRQ( EXTI9_5_IRQn);
+  EXTI0_IRQHandler(GPIO_Pin, Motor_Id);
+
+  }
+void LinxWiringDevice:: EXTI0_IRQHandler(uint16_t GPIO_Pin,uint8_t Motor_Id)
+{
+  HAL_GPIO_EXTI_IRQHandler(GPIO_Pin, Motor_Id);
+
+}
+void LinxWiringDevice:: HAL_GPIO_EXTI_IRQHandler(uint16_t GPIO_Pin,uint8_t Motor_Id)
+{
+ 
+
+  if(__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_7) != RESET)
+  {
+	pinMode(PB7, OUTPUT);
+	digitalWrite(PB7, HIGH);
+    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_7);
+    HAL_GPIO_EXTI_Callback(GPIO_Pin, Motor_Id);
+  }
+}
+void LinxWiringDevice::HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin,uint8_t Motor_Id)
+{
+	Motor_stop(Motor_Id);
+	pinMode(16, OUTPUT);
+	digitalWrite(16, HIGH);
+}
+
+
+.h file
+
+   void HAL_INTR_EXTI (uint16_t GPIO_Pin, uint8_t Motor_Id,uint8_t pp);
+    void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin,uint8_t Motor_Id);
+    void HAL_GPIO_EXTI_IRQHandler(uint16_t GPIO_Pin,uint8_t Motor_Id); 
+    void EXTI0_IRQHandler(uint16_t GPIO_Pin,uint8_t Motor_Id);

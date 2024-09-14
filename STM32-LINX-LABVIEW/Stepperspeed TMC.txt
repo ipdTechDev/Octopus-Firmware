@@ -1,0 +1,132 @@
+int LinxWiringDevice::Move_step(long Position,uint32_t Velocity)
+ {
+  long Travel_distance; 
+  target_position= Position; 
+  ISP_ramp =  1000000.0 / sqrt(2.0 * Accel);
+  desiredStepPeriod = 1000000.0 / Velocity; 
+
+  decelerationDistance= (long) round((Velocity * Velocity) / (2.0 * Accel));
+  Travel_distance = target_position - currentPosition;
+  if (Travel_distance < 0) 
+  {
+    Travel_distance = -Travel_distance;
+    direction_Scaler = -1;
+    driver->shaft(true);
+  }
+  else
+  {
+    direction_Scaler = 1;
+    driver->shaft(false);
+  }
+  if (Travel_distance <= (decelerationDistance * 2L))
+    decelerationDistance = (Travel_distance / 2L);
+  ramp_NextStepPeriod_InUS = ISP_ramp;
+  acceleration_uS = Accel / 1E12;
+  startNewMove = true;
+
+}
+ bool LinxWiringDevice::processMovement()
+ { 
+  unsigned long currentTime_InUS;
+  unsigned long periodSinceLastStep_InUS;
+  long distanceToTarget_InSteps;
+
+  //
+  // check if already at the target position
+  //
+  if (currentPosition == target_position)
+    return(true);
+
+  //
+  // check if this is the first call to start this new move
+  //
+  if (startNewMove)
+  {    
+    ramp_LastStepTime_InUS = micros();
+    startNewMove = false;
+  }
+    
+  //
+  // determine how much time has elapsed since the last step (Note 1: this method   
+  // works even if the time has wrapped. Note 2: all variables must be unsigned)
+  //
+  currentTime_InUS = micros();
+  periodSinceLastStep_InUS = currentTime_InUS - ramp_LastStepTime_InUS;
+
+  //
+  // if it is not time for the next step, return
+  //
+  if (periodSinceLastStep_InUS < (unsigned long) ramp_NextStepPeriod_InUS)
+    return(false);
+
+  //
+  // determine the distance from the current position to the target
+  //
+  distanceToTarget_InSteps = target_position - currentPosition;
+  if (distanceToTarget_InSteps < 0) 
+    distanceToTarget_InSteps = -distanceToTarget_InSteps;
+
+  //
+  // test if it is time to start decelerating, if so change from accelerating to 
+  // decelerating
+  //
+  if (distanceToTarget_InSteps == decelerationDistance)
+    acceleration_uS = -acceleration_uS;
+  
+  //
+  // execute the step on the rising edge
+  //
+  digitalWrite(stepPin, HIGH);
+  
+  //
+  // delay set to almost nothing because there is so much code between rising and 
+  // falling edges
+  delayMicroseconds(2);        
+  
+  //
+  // update the current position and speed
+  //
+  currentPosition += direction_Scaler;
+  currentStepPeriod = ramp_NextStepPeriod_InUS;
+
+
+  //
+  // compute the period for the next step
+  // StepPeriodInUS = LastStepPeriodInUS * 
+  //   (1 - AccelerationInStepsPerUSPerUS * LastStepPeriodInUS^2)
+  //
+  ramp_NextStepPeriod_InUS = ramp_NextStepPeriod_InUS * 
+    (1.0 - acceleration_uS * ramp_NextStepPeriod_InUS * 
+    ramp_NextStepPeriod_InUS);
+
+
+  //
+  // return the step line high
+  //
+  digitalWrite(stepPin, LOW);
+ 
+ 
+  //
+  // clip the speed so that it does not accelerate beyond the desired velocity
+  //
+  if (ramp_NextStepPeriod_InUS < desiredStepPeriod)
+    ramp_NextStepPeriod_InUS = desiredStepPeriod;
+
+
+  //
+  // update the acceleration ramp
+  //
+  ramp_LastStepTime_InUS = currentTime_InUS;
+ 
+ 
+  //
+  // check if move has reached its final target position, return true if all done
+  //
+  if (currentPosition == target_position)
+  {
+    currentStepPeriod = 0.0;
+    return(true);
+  }
+    
+  return(false);
+}

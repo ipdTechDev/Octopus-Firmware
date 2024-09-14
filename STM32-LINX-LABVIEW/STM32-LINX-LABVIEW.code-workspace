@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "STM32LINX",
+			"path": "../STM32LINX"
+		}
+	],
+	"settings": {}
+}
